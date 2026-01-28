@@ -1,0 +1,7 @@
+/Users/jackroden/Documents/Work/holmes-java/src/main/java/com/buildtechwithJack/holmes/HolmesJavaApplication.java
+/Users/jackroden/Documents/Work/holmes-java/src/main/java/com/buildtechwithJack/holmes/controllers/BaseController.java
+/Users/jackroden/Documents/Work/holmes-java/src/main/java/com/buildtechwithJack/holmes/models/CompareRequest.java
+/Users/jackroden/Documents/Work/holmes-java/src/main/java/com/buildtechwithJack/holmes/models/CompareResult.java
+/Users/jackroden/Documents/Work/holmes-java/src/main/java/com/buildtechwithJack/holmes/models/LineDiff.java
+/Users/jackroden/Documents/Work/holmes-java/src/main/java/com/buildtechwithJack/holmes/services/DiffService.java
+/Users/jackroden/Documents/Work/holmes-java/src/main/java/com/buildtechwithJack/holmes/utilities/InputUtil.java

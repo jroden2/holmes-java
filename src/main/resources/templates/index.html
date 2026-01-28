@@ -1,0 +1,286 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Holmes - Local DIFF checker</title>
+    <link th:href="@{/css/bootstrap.min.css}" rel="stylesheet">
+    <style>
+        body {
+            background: #f8f9fa;
+        }
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        textarea {
+            font-family: ui-monospace, 'Courier New', monospace;
+            font-size: 13px;
+        }
+        table {
+            font-family: ui-monospace, 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .diff-table td, .diff-table th {
+            vertical-align: top;
+            border: 1px solid #dee2e6;
+        }
+        .same { background: #fff; }
+        .changed { background: #fff3cd; }
+        .added { background: #d1e7dd; }
+        .removed { background: #f8d7da; }
+        mark {
+            padding: 0 2px;
+            border-radius: 4px;
+        }
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            background: #fff;
+            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+
+<body>
+<div class="main-container">
+    <div class="sticky-header">
+        <div class="bg-white border-bottom">
+            <div class="container-fluid py-4">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h1 class="h3 mb-1">
+                            <i class="bi bi-files-alt text-primary"></i> Local Diff Checker
+                        </h1>
+                        <p class="text-muted small mb-0">
+                            <i class="bi bi-shield-check"></i> Runs locally on <strong>127.0.0.1</strong>. Nothing is sent anywhere.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid py-4">
+        <!-- Error Alert -->
+        <div th:if="${error}" class="alert alert-danger d-flex align-items-center" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <div th:text="${error}"></div>
+        </div>
+
+        <form method="POST" th:action="@{/compare}" enctype="multipart/form-data" th:object="${compareRequest}">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted mb-1">Mode</label>
+                            <select th:field="*{mode}" id="modeSelect" class="form-select">
+                                <option value="auto" selected>Auto detect</option>
+                                <option value="text">Text</option>
+                                <option value="json">JSON (semantic normalize)</option>
+                                <option value="xml">XML (pretty + normalize)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted mb-1">Options</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" th:field="*{ignoreWhitespace}" id="ignoreWS" />
+                                <label class="form-check-label" for="ignoreWS">
+                                    Ignore whitespace
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" th:field="*{ignoreCase}" id="ignoreCase" />
+                                <label class="form-check-label" for="ignoreCase">
+                                    Ignore case
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3 ms-auto text-end">
+                            <label class="form-label small text-muted mb-1">&nbsp;</label>
+                            <button class="btn btn-primary d-block w-100" type="submit">
+                                <i class="bi bi-search"></i> Compare
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-lg-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-white">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-file-text text-info"></i> Text A
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small">Paste text OR upload a file:</p>
+                            <input type="file" name="fileA" class="form-control mb-3" />
+                            <textarea id="textareaA" th:field="*{textA}" class="form-control" rows="12"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-white">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-file-text text-success"></i> Text B
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small">Paste text OR upload a file:</p>
+                            <input type="file" name="fileB" class="form-control mb-3" />
+                            <textarea th:field="*{textB}" class="form-control" rows="12"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <hr class="my-4" />
+
+        <h2 class="h4 mb-3">
+            <i class="bi bi-bar-chart-line"></i> Results
+        </h2>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center">
+                            <strong class="me-2">Exact match:</strong>
+                            <span th:if="${result != null and result.exactMatch}" class="badge bg-success">
+                                <i class="bi bi-check-circle"></i> YES
+                            </span>
+                            <span th:if="${result != null and !result.exactMatch}" class="badge bg-danger">
+                                <i class="bi bi-x-circle"></i> NO
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center">
+                            <strong class="me-2">Normalized match:</strong>
+                            <span th:if="${result != null and result.normalizedMatch}" class="badge bg-success">
+                                <i class="bi bi-check-circle"></i> YES
+                            </span>
+                            <span th:if="${result != null and !result.normalizedMatch}" class="badge bg-danger">
+                                <i class="bi bi-x-circle"></i> NO
+                            </span>
+                            <span class="text-muted small ms-2">(based on ignore options)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-3" />
+
+                <div class="row g-2" th:if="${result != null}">
+                    <div class="col-md-6">
+                        <p class="text-muted small mb-1">
+                            <i class="bi bi-info-circle"></i> A length: <strong th:text="${result.aLength}">0</strong>
+                        </p>
+                        <p class="text-muted small mb-0" style="word-break: break-all;">
+                            <i class="bi bi-hash"></i> SHA256: <code class="small" th:text="${result.aHash}"></code>
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="text-muted small mb-1">
+                            <i class="bi bi-info-circle"></i> B length: <strong th:text="${result.bLength}">0</strong>
+                        </p>
+                        <p class="text-muted small mb-0" style="word-break: break-all;">
+                            <i class="bi bi-hash"></i> SHA256: <code class="small" th:text="${result.bHash}"></code>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h3 class="h5 mb-3">
+            <i class="bi bi-arrows-expand"></i> Side-by-side diff
+        </h3>
+
+        <div class="card shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-sm diff-table mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th style="width: 60px;">Line</th>
+                        <th>A</th>
+                        <th>B</th>
+                        <th style="width: 110px;">Status</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="line : ${result != null ? result.lineDiff : {}}"
+                        th:classappend="${line.status}">
+                        <td class="text-center text-muted" th:text="${line.lineNum}"></td>
+                        <td><pre th:utext="${line.aHtml}"></pre></td>
+                        <td><pre th:utext="${line.bHtml}"></pre></td>
+                        <td>
+                            <span th:if="${line.status == 'same'}" class="badge bg-secondary">same</span>
+                            <span th:if="${line.status == 'changed'}" class="badge bg-warning text-dark">changed</span>
+                            <span th:if="${line.status == 'added'}" class="badge bg-success">added</span>
+                            <span th:if="${line.status == 'removed'}" class="badge bg-danger">removed</span>
+                            <span th:if="${line.status != 'same' and line.status != 'changed' and line.status != 'added' and line.status != 'removed'}"
+                                  class="badge bg-light text-dark" th:text="${line.status}"></span>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="py-4"></div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const textareaA = document.getElementById('textareaA');
+        const modeSelect = document.getElementById('modeSelect');
+        let detectedMode = 'auto';
+
+        textareaA.addEventListener('input', function() {
+            if (modeSelect.value !== 'auto' && modeSelect.dataset.autoManaged !== 'true') {
+                return;
+            }
+
+            const content = this.value.trim();
+            if (content.startsWith('{') || content.startsWith('[')) {
+                try {
+                    JSON.parse(content);
+                    detectedMode = 'json';
+                } catch (e) { /* partial JSON, keep waiting */ }
+            } else if (content.startsWith('<')) {
+                if (content.includes('</') || content.endsWith('/>')) {
+                    detectedMode = 'xml';
+                }
+            } else if (content.length > 0) {
+                detectedMode = 'text';
+            }
+
+            if (detectedMode !== 'auto') {
+                modeSelect.value = detectedMode;
+                modeSelect.dataset.autoManaged = 'true';
+            }
+        });
+
+        modeSelect.addEventListener('change', function() {
+            delete modeSelect.dataset.autoManaged;
+        });
+    });
+</script>
+
+<script th:src="@{/js/bootstrap.bundle.min.js}"></script>
+</body>
+</html>
